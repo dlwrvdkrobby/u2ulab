@@ -7,7 +7,13 @@ on:
     branches: ["main"] 
     paths-ignore: ["-gitbub/workflows/*",".ps1"]
 
-  workflow_dispatch: 
+  workflow_dispatch:
+
+
+#Variable
+env:
+  Az_RG_Name: RG11
+
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
 # Tests (CI)
@@ -22,4 +28,25 @@ jobs:
       #Bicpe file moet op root niveau zitten
       - name: Run Bicep linter test
         run: az bicep build --file storage.bicep
+  # uiteindelijke deployment
+  deploy: 
+    runs-on: ubuntu-latest
+    needs: [lint] 
+    steps:
+      - uses: actions/checkout
+      - name: Sign in to Azure
+        uses: azure/login@v1
+        with:
+          creds:  ${{secrets.AZURE_CREDENTIALS}}
 
+      - name: Create RG
+        uses: azure/cli@v1
+        with:
+          inlineScript: az group create --name ${{env.Az_RG_Name}} --location 'WestEurope'     
+      - name: Deploy SA 
+        uses: azure/arm-deploy@v1
+        id:  deploy-sa
+        with: 
+         deploymentName: ${{github.run_number}}
+         resourceGroupName: ${{env.Az_RG_Name}}
+         template: ./storage.bicep
